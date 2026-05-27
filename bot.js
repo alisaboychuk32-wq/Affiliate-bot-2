@@ -1,11 +1,8 @@
 require('dotenv').config();
-const { Telegraf, Markup } = require('telegraf');
+const { Telegraf, Markup, session } = require('telegraf');
 const Database = require('./database');
 const Funnel = require('./funnel');
 const Admin = require('./admin');
-
-// Простое хранилище сессий в памяти
-const sessions = {};
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ADMIN_IDS = (process.env.ADMIN_IDS || '').split(',').map(id => parseInt(id)).filter(Boolean);
@@ -21,14 +18,12 @@ const db = new Database();
 const funnel = new Funnel(db, CHANNEL);
 const admin = new Admin(db, ADMIN_IDS);
 
-// Middleware: сессии + логирование
+bot.use(session());
+
 bot.use(async (ctx, next) => {
-  const userId = ctx.from?.id;
-  if (userId) {
-    if (!sessions[userId]) sessions[userId] = {};
-    ctx.session = sessions[userId];
+  if (ctx.from) {
     await db.upsertUser({
-      id: userId,
+      id: ctx.from.id,
       username: ctx.from.username || '',
       first_name: ctx.from.first_name || '',
       last_name: ctx.from.last_name || '',
@@ -130,7 +125,6 @@ bot.action(/^step_(\d+)_(.+)$/, async (ctx) => {
   await funnel.sendFunnelStep(ctx, step, funnelId);
 });
 
-// ─── ADMIN ───────────────────────────────────────────────────────────────────
 bot.command('admin', async (ctx) => {
   if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.reply('⛔ Нет доступа.');
   await admin.sendDashboard(ctx);
@@ -181,9 +175,10 @@ bot.action('admin_back', async (ctx) => {
 bot.action(/^broadcast_(.+)$/, async (ctx) => {
   if (!ADMIN_IDS.includes(ctx.from.id)) return ctx.answerCbQuery('⛔');
   await ctx.answerCbQuery();
+  ctx.session = ctx.session || {};
   ctx.session.awaitingBroadcast = ctx.match[1];
   await ctx.editMessageText(
-    `📢 *Рассылка*\n\nВведи текст сообщения:\n\n_Для отмены введи /admin_`,
+    `📢 *Рассылка*\n\nВведи текст сообщения (поддерживается Markdown):\n\n_Для отмены введи /admin_`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -203,7 +198,6 @@ bot.on('text', async (ctx, next) => {
   return next();
 });
 
-// ─── Warmup scheduler ────────────────────────────────────────────────────────
 async function runWarmupScheduler() {
   setInterval(async () => {
     try {
@@ -222,7 +216,6 @@ async function runWarmupScheduler() {
   }, 60 * 1000);
 }
 
-// ─── Запуск ───────────────────────────────────────────────────────────────────
 async function main() {
   await db.init();
   runWarmupScheduler();
