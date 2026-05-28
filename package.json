@@ -5,15 +5,11 @@
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
-    "dev": "nodemon bot.js",
-    "pm2": "pm2 start bot.js --name affiliate-bot --watch"
   },
   "dependencies": {
     "telegraf": "^4.16.3",
-    "better-sqlite3": "^9.4.3"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.0"
+    "node-json-db": "^2.3.0",
+    "dotenv": "^16.4.5"
   },
   "engines": {
     "node": ">=18.0.0"
