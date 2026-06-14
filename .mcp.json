@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hermes-workspace": {
+      "type": "http",
+      "url": "https://hermes-workspace.com/mcp"
+    }
+  }
+}
